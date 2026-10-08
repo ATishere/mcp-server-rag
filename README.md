@@ -11,11 +11,11 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
-A **production-grade Model Context Protocol (MCP) server** that exposes Retrieval-Augmented Generation (RAG) capabilities to any MCP-compatible client (Claude Desktop, Cursor, etc.).
+A production-grade Model Context Protocol (MCP) server that exposes Retrieval-Augmented Generation (RAG) capabilities to any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
-**Think of it as a "USB-C for AI"** — a standardized protocol that lets LLMs access your private knowledge base with built-in security, observability, and production safeguards.
+Think of it as a "USB-C for AI" — a standardized protocol that lets LLMs access your private knowledge base with built-in security, observability, and production safeguards.
 
 ### Why this project?
 
@@ -24,12 +24,12 @@ A **production-grade Model Context Protocol (MCP) server** that exposes Retrieva
 | LLMs don't know your private data | RAG pipeline fetches relevant documents |
 | LLMs can't connect to your databases | MCP provides standardized interface |
 | No security / access control | 6-layer security stack |
-| No observability | Structured logging + Prometheus metrics |
+| No observability | Structured logging + metrics |
 | Hallucinations from bad retrieval | CRAG (Corrective RAG) — planned |
 
 ---
 
-## ✨ Features
+## Features
 
 ### Core Capabilities
 - **MCP Protocol** — Tools, Resources, Prompts
@@ -49,85 +49,79 @@ A **production-grade Model Context Protocol (MCP) server** that exposes Retrieva
 ### Observability
 - **Structured Logging** — JSON format, context-aware
 - **Sensitive Data Censoring** — Auto-mask tokens/passwords
-- **Request Tracing** — `request_id`, `user_id` propagated
-- **Metrics** — Prometheus-ready (planned)
+- **Request Tracing** — request_id, user_id propagated
 
 ### DevOps
 - **Docker** — Multi-stage build, non-root user
 - **Docker Compose** — Postgres + Redis + Server
 - **CI/CD** — GitHub Actions (lint, type-check, test, coverage)
-- **Makefile** — Common commands (`make test`, `make run`)
+- **Makefile** — Common commands (make test, make run)
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-### 5-Tier System Design
+### 5-Tier Design
++---------------------------------------------------+
+| TIER 1: MCP CLIENT |
+| Claude Desktop, Cursor, Cline |
++-----------------------+---------------------------+
+| MCP Protocol (stdio/HTTP)
+v
++---------------------------------------------------+
+| TIER 2: MCP SERVER FOR RAG |
+| Tools | Resources | Prompts |
++-----------------------+---------------------------+
+v
++---------------------------------------------------+
+| TIER 3: SECURITY LAYER (6 layers) |
+| JWT | RBAC | Validation |
+| Injection Detection | Rate Limit | Audit |
++-----------------------+---------------------------+
+v
++---------------------------------------------------+
+| TIER 4: RAG ENGINE |
+| Embedding | Vector Search | Rerank | Generation |
++-----------------------+---------------------------+
+v
++---------------------------------------------------+
+| TIER 5: STORAGE |
+| PostgreSQL + pgvector | Redis | S3 |
++---------------------------------------------------+
 
-```mermaid
-flowchart TB
-    subgraph T1["🖥️ TIER 1: MCP CLIENT"]
-        C1["Claude Desktop · Cursor · Cline"]
-    end
+text
 
-    subgraph T2["🧠 TIER 2: MCP SERVER FOR RAG"]
-        T2A["Tools<br/>search_documents · retrieve_chunk<br/>generate_answer · cite_sources"]
-        T2B["Resources<br/>rag://documents · rag://chunks"]
-        T2C["Prompts<br/>answer_with_citations"]
-    end
+### Data Flow
+User asks: "What is Kubernetes?"
 
-    subgraph T3["🔒 TIER 3: SECURITY LAYER (6 layers)"]
-        S1["JWT Auth"] --> S2["RBAC"] --> S3["Input Validation"] --> S4["Injection Detection"] --> S5["Rate Limiting"] --> S6["Audit Logging"]
-    end
+MCP Client -> MCP Server: call_tool(search_documents)
 
-    subgraph T4["⚙️ TIER 4: RAG ENGINE"]
-        R1["Embedding"] --> R2["Vector Search<br/>(BM25 + Vector)"] --> R2B["Reranking<br/>(Cross-encoder)"] --> R3["Generation<br/>(Claude API)"]
-    end
+Security: verify JWT + RBAC + injection check
 
-    subgraph T5["💾 TIER 5: STORAGE"]
-        D1["PostgreSQL<br/>+ pgvector"]
-        D2["Redis<br/>(Cache)"]
-        D3["S3<br/>(Documents)"]
-    end
+RAG Engine: embed query -> vector
 
-    C1 -->|"MCP Protocol (stdio / HTTP)"| T2A
-    T2A --> T3
-    T2B --> T3
-    T2C --> T3
-    T3 --> T4
-    T4 --> T5
-Data Flow
-sequenceDiagram
-    autonumber
-    participant U as 👤 User
-    participant CL as 🖥️ MCP Client
-    participant SV as 🧠 MCP Server
-    participant SEC as 🔒 Security
-    participant RAG as ⚙️ RAG Engine
-    participant DB as 💾 Storage
+Storage: hybrid search (top 10 chunks)
 
-    U->>CL: "What is Kubernetes?"
-    CL->>SV: call_tool(search_documents)
-    SV->>SEC: verify JWT + RBAC
-    SEC->>SEC: check injection + rate limit
-    SEC->>RAG: pass query
-    RAG->>RAG: embed query → vector
-    RAG->>DB: hybrid search (top 10)
-    DB-->>RAG: return chunks
-    RAG->>RAG: rerank → top 5
-    RAG-->>SV: formatted chunks
-    SV-->>CL: results
-    CL-->>U: "Here are 5 relevant chunks..."
-🚀 Quick Start
-Prerequisites
-Python 3.12+
+RAG Engine: rerank -> top 5 chunks
 
-(Optional) Docker + Docker Compose
+MCP Server -> MCP Client: formatted chunks
 
-(Optional) PostgreSQL 16 + pgvector, Redis
+User receives answer with citations
 
-Installation
-bash
+text
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Python 3.12+
+- (Optional) Docker + Docker Compose
+- (Optional) PostgreSQL 16 + pgvector, Redis
+
+### Installation
+
+```bash
 # Clone repository
 git clone https://github.com/ATishere/mcp-server-rag.git
 cd mcp-server-rag
@@ -142,7 +136,7 @@ pip install -e ".[dev]"
 
 # Setup environment
 cp .env.example .env
-# Edit .env with your JWT_SECRET and other settings
+# Edit .env with your JWT_SECRET
 Run server
 bash
 # Run MCP server (stdio transport)
@@ -166,7 +160,7 @@ json
     }
   }
 }
-🛠️ Tools
+Tools
 Tool	Description	Permission
 search_documents	Hybrid search (BM25 + vector) with reranking	read
 retrieve_chunk	Fetch full content of a chunk by ID	read
@@ -193,17 +187,17 @@ Found 3 relevant chunks for query: 'What is Kubernetes?'
 
 **2. [doc-2]** (score: 0.850)
    ...
-📊 Performance Metrics
+Performance Metrics
 Metric	Target	Actual	Status
 Test count	>50	101	✅
 Test coverage	>80%	84%	✅
 Test duration	<10s	1.36s	✅
-Security layers	≥4	6	✅
+Security layers	>=4	6	✅
 p95 latency	<200ms	TBD	⏳
 Error rate	<0.1%	TBD	⏳
-🔒 Security
+Security
 6-Layer Defense
-#	Layer	What it protects against
+#	Layer	Protects against
 1	JWT Authentication	Identity spoofing
 2	RBAC	Privilege escalation
 3	Input Validation	Malformed / oversized inputs
@@ -217,7 +211,7 @@ from mcp_rag.security.injection import detect_injection
 detect_injection("What is Kubernetes?")                 # False
 detect_injection("Ignore all previous instructions")    # True
 detect_injection("DROP TABLE users")                    # True
-🐛 Failure Analysis
+Failure Analysis
 Real failure modes discovered during development:
 
 Issue #1: MCP SDK version mismatch
@@ -261,16 +255,16 @@ Symptom: Invalid token test failed because token was too short
 
 Root cause: Validation runs BEFORE auth — good for fail-fast
 
-Fix: Use token ≥ 10 chars for auth-specific tests
+Fix: Use token >= 10 chars for auth-specific tests
 
 Lesson: Test isolation — each test should test one layer
 
-🔮 What I Would Do Differently
+What I Would Do Differently
 If I rebuilt this project, I would:
 
 Add semantic caching — Cache by embedding similarity, not exact query hash. Expected: 40% cost reduction.
 
-Implement CRAG (Corrective RAG) — Evaluate retrieval relevance with LLM, retry on low relevance. Expected: hallucination rate from 15% → 5%.
+Implement CRAG (Corrective RAG) — Evaluate retrieval relevance with LLM, retry on low relevance. Expected: hallucination rate from 15% to 5%.
 
 Add multi-hop retrieval — Decompose complex queries into sub-queries. Example: "Compare 2023 and 2024 policies" → fetch both, then combine.
 
@@ -282,16 +276,13 @@ Async ingestion pipeline — Upload 10K docs without blocking. Use queue + worke
 
 Build eval harness from day one — Use RAGAS metrics (faithfulness, answer relevancy, context recall) with golden dataset.
 
-🧪 Testing
+Testing
 bash
 # Run all tests
 pytest tests/ -v
 
 # With coverage
 pytest tests/ -v --cov=mcp_rag --cov-report=html --cov-report=term-missing
-
-# Fast (skip slow tests)
-pytest tests/ -v -m "not slow"
 
 # Via Makefile
 make test
@@ -306,7 +297,7 @@ tests/
 ├── test_security.py       # Validation + injection (27 tests)
 ├── test_server.py         # Server setup (4 tests)
 └── test_tools.py          # 4 tools (14 tests)
-🐳 Docker
+Docker
 bash
 # Build image
 docker build -t mcp-server-rag:latest .
@@ -316,14 +307,15 @@ docker-compose up -d
 
 # View logs
 docker-compose logs -f mcp-server
-Docker Compose services
+Services:
+
 mcp-server — Our MCP server (non-root user)
 
 postgres — PostgreSQL 16 + pgvector
 
 redis — Redis 7 (cache)
 
-📚 Documentation
+Documentation
 Architecture — 5-tier design
 
 API Reference — All tools/resources
@@ -332,14 +324,11 @@ Security — Threat model
 
 Deployment — Docker, K8s
 
-Contributing
-
-🛠️ Tech Stack
+Tech Stack
 Layer	Technology
 Protocol	MCP (Model Context Protocol)
 Language	Python 3.12
 Package manager	pip + pyproject.toml
-Web (optional)	FastAPI + Uvicorn
 Validation	Pydantic v2
 Auth	PyJWT
 Database	PostgreSQL 16 + pgvector
@@ -350,21 +339,14 @@ Linting	ruff
 Type checking	mypy
 CI/CD	GitHub Actions
 Container	Docker + docker-compose
-📄 License
+License
 MIT License — see LICENSE for details.
 
-👤 Author
+Author
 Pham Anh Tuan
 
 Email: tech.anhpham@gmail.com
 
 GitHub: @ATishere
-
-🙏 Acknowledgments
-Anthropic MCP — Protocol specification
-
-pgvector — Vector similarity search
-
-structlog — Structured logging
 
 ⭐ If you find this project useful, please give it a star!
