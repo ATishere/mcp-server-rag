@@ -49,7 +49,7 @@ A **production-grade Model Context Protocol (MCP) server** that exposes Retrieva
 ### Observability
 - **Structured Logging** — JSON format, context-aware
 - **Sensitive Data Censoring** — Auto-mask tokens/passwords
-- **Request Tracing** — request_id, user_id propagated
+- **Request Tracing** — `request_id`, `user_id` propagated
 - **Metrics** — Prometheus-ready (planned)
 
 ### DevOps
@@ -61,60 +61,75 @@ A **production-grade Model Context Protocol (MCP) server** that exposes Retrieva
 ---
 
 ## 🏗️ Architecture
-┌─────────────────────────────────────────────────────────────┐
-│ TIER 1: MCP CLIENT │
-│ (Claude Desktop, Cursor, Cline, etc.) │
-│ → User interacts here │
-└─────────────────────────┬───────────────────────────────────┘
-│ MCP Protocol (stdio / HTTP)
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ TIER 2: MCP SERVER FOR RAG │
-│ │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
-│ │ Tools │ │ Resources │ │ Prompts │ │
-│ │ (search_...) │ │ (rag://...) │ │ (templates) │ │
-│ └──────┬───────┘ └──────────────┘ └──────────────┘ │
-│ │ │
-│ ▼ │
-│ ┌──────────────────────────────────────────────┐ │
-│ │ TIER 3: SECURITY LAYER (6 layers) │ │
-│ │ • JWT • RBAC • Validation │ │
-│ │ • Injection Detection • Rate Limit │ │
-│ │ • Audit Logging │ │
-│ └──────────────────┬───────────────────────────┘ │
-│ ▼ │
-│ ┌──────────────────────────────────────────────┐ │
-│ │ TIER 4: RAG ENGINE │ │
-│ │ • Embedding • Vector Search │ │
-│ │ • Reranking • Generation │ │
-│ │ • CRAG (planned) │ │
-│ └──────────────────┬───────────────────────────┘ │
-│ ▼ │
-│ ┌──────────────────────────────────────────────┐ │
-│ │ TIER 5: STORAGE │ │
-│ │ • PostgreSQL + pgvector │ │
-│ │ • Redis (cache) │ │
-│ │ • S3 (documents) │ │
-│ └──────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
 
-text
+### 5-Tier System Design
 
----
+```mermaid
+flowchart TB
+    subgraph T1["🖥️ TIER 1: MCP CLIENT"]
+        C1["Claude Desktop · Cursor · Cline"]
+    end
 
-## 🚀 Quick Start
+    subgraph T2["🧠 TIER 2: MCP SERVER FOR RAG"]
+        T2A["Tools<br/>search_documents · retrieve_chunk<br/>generate_answer · cite_sources"]
+        T2B["Resources<br/>rag://documents · rag://chunks"]
+        T2C["Prompts<br/>answer_with_citations"]
+    end
 
-### Prerequisites
-- Python 3.12+
-- (Optional) Docker + Docker Compose
-- (Optional) PostgreSQL 16 + pgvector, Redis
+    subgraph T3["🔒 TIER 3: SECURITY LAYER (6 layers)"]
+        S1["JWT Auth"] --> S2["RBAC"] --> S3["Input Validation"] --> S4["Injection Detection"] --> S5["Rate Limiting"] --> S6["Audit Logging"]
+    end
 
-### Installation
+    subgraph T4["⚙️ TIER 4: RAG ENGINE"]
+        R1["Embedding"] --> R2["Vector Search<br/>(BM25 + Vector)"] --> R2B["Reranking<br/>(Cross-encoder)"] --> R3["Generation<br/>(Claude API)"]
+    end
 
-```bash
+    subgraph T5["💾 TIER 5: STORAGE"]
+        D1["PostgreSQL<br/>+ pgvector"]
+        D2["Redis<br/>(Cache)"]
+        D3["S3<br/>(Documents)"]
+    end
+
+    C1 -->|"MCP Protocol (stdio / HTTP)"| T2A
+    T2A --> T3
+    T2B --> T3
+    T2C --> T3
+    T3 --> T4
+    T4 --> T5
+Data Flow
+sequenceDiagram
+    autonumber
+    participant U as 👤 User
+    participant CL as 🖥️ MCP Client
+    participant SV as 🧠 MCP Server
+    participant SEC as 🔒 Security
+    participant RAG as ⚙️ RAG Engine
+    participant DB as 💾 Storage
+
+    U->>CL: "What is Kubernetes?"
+    CL->>SV: call_tool(search_documents)
+    SV->>SEC: verify JWT + RBAC
+    SEC->>SEC: check injection + rate limit
+    SEC->>RAG: pass query
+    RAG->>RAG: embed query → vector
+    RAG->>DB: hybrid search (top 10)
+    DB-->>RAG: return chunks
+    RAG->>RAG: rerank → top 5
+    RAG-->>SV: formatted chunks
+    SV-->>CL: results
+    CL-->>U: "Here are 5 relevant chunks..."
+🚀 Quick Start
+Prerequisites
+Python 3.12+
+
+(Optional) Docker + Docker Compose
+
+(Optional) PostgreSQL 16 + pgvector, Redis
+
+Installation
+bash
 # Clone repository
-git clone https://github.com/your-username/mcp-server-rag.git
+git clone https://github.com/ATishere/mcp-server-rag.git
 cd mcp-server-rag
 
 # Create virtual environment
@@ -158,6 +173,8 @@ retrieve_chunk	Fetch full content of a chunk by ID	read
 generate_answer	LLM-generated answer with citations	read
 cite_sources	Retrieve citations for a generated answer	read
 Example: search_documents
+Request:
+
 json
 {
   "query": "What is Kubernetes?",
@@ -197,9 +214,9 @@ Example: Injection detection
 python
 from mcp_rag.security.injection import detect_injection
 
-detect_injection("What is Kubernetes?")           # False
-detect_injection("Ignore all previous instructions")  # True
-detect_injection("DROP TABLE users")              # True
+detect_injection("What is Kubernetes?")                 # False
+detect_injection("Ignore all previous instructions")    # True
+detect_injection("DROP TABLE users")                    # True
 🐛 Failure Analysis
 Real failure modes discovered during development:
 
@@ -341,7 +358,7 @@ Pham Anh Tuan
 
 Email: tech.anhpham@gmail.com
 
-GitHub: @your-username
+GitHub: @ATishere
 
 🙏 Acknowledgments
 Anthropic MCP — Protocol specification
