@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-server-rag"
+version = "1.0.0"
+description = "Production-grade MCP server exposing RAG capabilities to LLM applications"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [
+    { name = "Pham Anh Tuan", email = "tech.anhpham@gmail.com" }
+]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "pyjwt>=2.9.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+]
+
+[project.scripts]
+mcp-rag = "mcp_rag.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+# ============================================================
+# Coverage
+# ============================================================
+[tool.coverage.run]
+source = ["src/mcp_rag"]
+omit = [
+    "*/tests/*",
+    "*/__main__.py",
+    "*/prompts/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

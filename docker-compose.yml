@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  # ============================================================
+  # MCP Server
+  # ============================================================
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mcp-server-rag:latest
+    container_name: mcp-server-rag
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://mcp_user:mcp_password@postgres:5432/mcp_rag
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mcp-network
+    stdin_open: true  # Cần cho stdio transport
+    tty: false
+
+  # ============================================================
+  # PostgreSQL + pgvector
+  # ============================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mcp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mcp_user
+      POSTGRES_PASSWORD: mcp_password
+      POSTGRES_DB: mcp_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp_user -d mcp_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-network
+
+  # ============================================================
+  # Redis
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  mcp-network:
+    driver: bridge
